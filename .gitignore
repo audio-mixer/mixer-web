@@ -3,4 +3,4 @@ venv/*
 .flaskenv
 
 app/__pycache__
-app/views/__pycache__
+app/*/__pycache__
