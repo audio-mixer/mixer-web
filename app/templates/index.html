@@ -8,6 +8,8 @@
 </head>
 <body>
     <script>
+        const ws = new WebSocket("ws://localhost:5000/stream")
+        ws.binaryType = "arraybuffer"
 
         let context
         let init = 0
@@ -21,18 +23,19 @@
             alert('Web Audio API is not supported in this browser')
         }
 
-        function stream() {
-            const ws = new WebSocket("ws://localhost:{{ socket_port }}/stream")
-            ws.binaryType = "arraybuffer"
+        // begin recieving audio chunks over websockets
+        function stream(source, buffer_size = 10) {
 
-            ws.onopen = () => {
+            // reset varuables
+            init, nextTime = 0, 0
 
-                // initially send information to the server to fetch the audio stream 
-                ws.send(JSON.stringify({
-                    source: "example.wav"
-                }))        
-            }
-            
+            // initially send information to the server to fetch the audio stream 
+            ws.send(JSON.stringify({
+                type: "stream",
+                source: source
+            }))
+
+            // handle the incomming audio data
             ws.onmessage = message => {
                 if (!message.data instanceof ArrayBuffer) {
                     return
@@ -40,7 +43,7 @@
 
                 context.decodeAudioData(message.data, buffer => {
                     audioStack.push(buffer)
-                    if ((init!=0) || (audioStack.length > 10)) {
+                    if ((init!=0) || (audioStack.length > buffer_size)) {
                         init++
                         playBuffer()
                     }
@@ -48,6 +51,7 @@
             }
         }
 
+        // begin playing audio from buffer
         function playBuffer() {
             while (audioStack.length) {
                 let buffer = audioStack.shift()
