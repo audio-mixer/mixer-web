@@ -9,7 +9,10 @@
 <body>
     <script>
 
-        let context;
+        let context
+        let init = 0
+        let nextTime = 0
+        let audioStack = []
 
         try{
             window.AudioContext = window.AudioContext || window.webkitAudioContext
@@ -19,7 +22,7 @@
         }
 
         function stream() {
-            const ws = new WebSocket("ws://localhost:5000/stream")
+            const ws = new WebSocket("ws://localhost:{{ socket_port }}/stream")
             ws.binaryType = "arraybuffer"
 
             ws.onopen = () => {
@@ -29,19 +32,33 @@
                     source: "example.wav"
                 }))        
             }
-
-            ws.onmessage = async message => {
+            
+            ws.onmessage = message => {
                 if (!message.data instanceof ArrayBuffer) {
                     return
                 }
 
-                let audioBuffer = await context.decodeAudioData(message.data)
-                let source = context.createBufferSource()
-                source.buffer = audioBuffer
-                source.connect(context.destination)
+                context.decodeAudioData(message.data, buffer => {
+                    audioStack.push(buffer)
+                    if ((init!=0) || (audioStack.length > 10)) {
+                        init++
+                        playBuffer()
+                    }
+                })
+            }
+        }
 
-                // auto play
-                source.start(0)
+        function playBuffer() {
+            while (audioStack.length) {
+                let buffer = audioStack.shift()
+                let source = context.createBufferSource()
+                source.buffer =  buffer
+                source.connect(context.destination)
+                if (nextTime == 0) 
+                    nextTime = context.currentTime + 0.05
+
+                source.start(nextTime);
+                nextTime+=source.buffer.duration
             }
         }
     </script>
