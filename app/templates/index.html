@@ -1,1 +1,49 @@
-<h1>Hello World</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vaporwave it!</title>
+</head>
+<body>
+    <script>
+
+        let context;
+
+        try{
+            window.AudioContext = window.AudioContext || window.webkitAudioContext
+            context = new AudioContext()
+        }catch(e) {
+            alert('Web Audio API is not supported in this browser')
+        }
+
+        function stream() {
+            const ws = new WebSocket("ws://localhost:5000/stream")
+            ws.binaryType = "arraybuffer"
+
+            ws.onopen = () => {
+
+                // initially send information to the server to fetch the audio stream 
+                ws.send(JSON.stringify({
+                    source: "example.wav"
+                }))        
+            }
+
+            ws.onmessage = async message => {
+                if (!message.data instanceof ArrayBuffer) {
+                    return
+                }
+
+                let audioBuffer = await context.decodeAudioData(message.data)
+                let source = context.createBufferSource()
+                source.buffer = audioBuffer
+                source.connect(context.destination)
+
+                // auto play
+                source.start(0)
+            }
+        }
+    </script>
+</body>
+</html>
