@@ -69,7 +69,7 @@
 
         // stoppes playback
         function stop() {
-            if (context == undefined) {
+            if (context == undefined || context.state == "closed") {
                 return
             }
 
