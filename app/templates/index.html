@@ -18,7 +18,6 @@
 
         try{
             window.AudioContext = window.AudioContext || window.webkitAudioContext
-            context = new AudioContext()
         }catch(e) {
             alert('Web Audio API is not supported in this browser')
         }
@@ -29,9 +28,11 @@
             // reset varuables
             init, nextTime = 0, 0
 
+            // create audio context
+            context = new AudioContext()
+
             // initially send information to the server to fetch the audio stream 
             ws.send(JSON.stringify({
-                type: "stream",
                 source: source
             }))
 
@@ -64,6 +65,20 @@
                 source.start(nextTime);
                 nextTime+=source.buffer.duration
             }
+        }
+
+        // stoppes playback
+        function stop() {
+            if (context == undefined) {
+                return
+            }
+
+            context.close()
+            audioStack = []
+            init, nextTime = 0, 0
+            ws.send(JSON.stringify({
+                command: "STOP"
+            }))
         }
     </script>
 </body>
