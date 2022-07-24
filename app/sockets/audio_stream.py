@@ -24,16 +24,17 @@ def audio_stream(ws: Websocket):
                 wav = wave.open(data["source"])
             if "command" in data:
                 if data["command"] == "STOP":
-                    wav.close()
-                    wav = None
-                    print("Stopped streaming...")
+                    if wav is not None:
+                        wav.close()
+                        wav = None
+                        print("stopped transmitting...")
                     continue
 
         if wav is not None:
             if wav.tell() >= wav.getnframes():
                 wav.close()
                 wav = None
-                print("finished streaming data!")
+                print("finished transmitting chunks!")
                 continue
 
             sample_rate = wav.getframerate()
