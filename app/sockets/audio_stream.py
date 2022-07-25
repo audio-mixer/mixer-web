@@ -14,6 +14,17 @@ CHUNK_SIZE = 10 * 1024
 def audio_stream(ws: Websocket):
 
     wav = None
+    _nchannels = 2
+    _sampwidth = 0
+    _framerate = 0
+    _nframes = 0
+    _comptype = ""
+    _compname = ""
+    _duration = {
+        "hours": 0,
+        "minuets": 0,
+        "seconds": 0
+    }
 
     while ws.connected:
 
@@ -23,6 +34,18 @@ def audio_stream(ws: Websocket):
             if "source" in data:
                 wav = wave.open(data["source"])
             if "command" in data:
+                if data["command"] == "GET":
+                    ws.send(json.dumps({
+                        "command": "GET",
+                        "nchannels": _nchannels,
+                        "sampwidth": _sampwidth,
+                        "framerate": _framerate,
+                        "frames": _nframes,
+                        "comptype": _comptype,
+                        "compname": _compname,
+                        "duration": _duration
+                    }))
+
                 if data["command"] == "STOP":
                     if wav is not None:
                         wav.close()
@@ -36,6 +59,19 @@ def audio_stream(ws: Websocket):
                 wav = None
                 print("finished transmitting chunks!")
                 continue
+
+            _nchannels, _sampwidth, _framerate, _nframes, _comptype, _compname = wav.getparams()
+            length = int(_nframes / _framerate)
+            hours = length // 3600
+            length %= 3600
+            minutes = length // 60
+            length %= 60
+            seconds = length
+            _duration = {
+                "hours": hours,
+                "minuets": minutes,
+                "seconds": seconds
+            }
 
             sample_rate = wav.getframerate()
             frame = wav.readframes(CHUNK_SIZE)

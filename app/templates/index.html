@@ -9,7 +9,7 @@
 <body>
     <script>
         const protocol = location.protocol == "http:" ? "ws" : "wss"
-        const ws = new WebSocket(`${protocol}://${location.host}/stream`)
+        const ws = new WebSocket(`${protocol}://localhost:5000/stream`)
         ws.binaryType = "arraybuffer"
 
         let context
@@ -17,40 +17,70 @@
         let nextTime = 0
         let audioStack = []
 
+        // information about current track
+        let nchannels = 0
+        let sampwidth = 0
+        let framerate = 0
+        let frames = 0
+        let comptype = ""
+        let compname = ""
+        let duration = { hours: 0, minuets: 0, seconds: 0 }
+
         try{
             window.AudioContext = window.AudioContext || window.webkitAudioContext
         }catch(e) {
             alert('Web Audio API is not supported in this browser')
         }
 
+        // handle the incomming audio data
+        ws.onmessage = message => {
+            if (message.data instanceof ArrayBuffer) {
+                context.decodeAudioData(message.data, buffer => {
+                    // console.log(buffer.duration)
+                    audioStack.push(buffer)
+                    if ((init!=0) || (audioStack.length > 2)) {
+                        init++
+                        playBuffer()
+                    }
+                })
+
+                return
+            }
+
+            data = JSON.parse(message.data)
+            cmdUsed = data.command
+            switch (cmdUsed) {
+                case "GET":
+                    nchannels = data.nchannels
+                    sampwidth = data.sampwidth
+                    framerate = data.framerate
+                    comptype = data.comptype
+                    compname = data.compname
+                    duration = data.duration
+                    frames = data.frames
+                break
+            }
+        }
+
         // begin recieving audio chunks over websockets
-        function stream(source, buffer_size = 10) {
+        function stream(source = "example.wav") {
 
             // reset varuables
-            init, nextTime = 0, 0
+            [init, nextTime] = [0, 0]
 
             // create audio context
             context = new AudioContext()
 
             // initially send information to the server to fetch the audio stream 
             ws.send(JSON.stringify({
-                source: source
+                source: source,
+                command: "STREAM"
             }))
 
-            // handle the incomming audio data
-            ws.onmessage = message => {
-                if (!message.data instanceof ArrayBuffer) {
-                    return
-                }
-
-                context.decodeAudioData(message.data, buffer => {
-                    audioStack.push(buffer)
-                    if ((init!=0) || (audioStack.length > buffer_size)) {
-                        init++
-                        playBuffer()
-                    }
-                })
-            }
+            // this will populate varuables which hold information about the current stream
+            ws.send(JSON.stringify({
+                command: "GET"
+            }))
         }
 
         // begin playing audio from buffer
@@ -75,10 +105,15 @@
             }
 
             context.close()
-            audioStack = []
-            init, nextTime = 0, 0
+            [init, nextTime] = [0, 0]
             ws.send(JSON.stringify({
                 command: "STOP"
+            }))
+        }
+
+        function get() {
+            ws.send(JSON.stringify({
+                command: "GET"
             }))
         }
     </script>
