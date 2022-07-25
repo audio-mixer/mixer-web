@@ -74,12 +74,7 @@
             // initially send information to the server to fetch the audio stream 
             ws.send(JSON.stringify({
                 source: source,
-                command: "STREAM"
-            }))
-
-            // this will populate varuables which hold information about the current stream
-            ws.send(JSON.stringify({
-                command: "GET"
+                commands: ["STREAM", "GET"]
             }))
         }
 
@@ -107,13 +102,7 @@
             context.close()
             [init, nextTime] = [0, 0]
             ws.send(JSON.stringify({
-                command: "STOP"
-            }))
-        }
-
-        function get() {
-            ws.send(JSON.stringify({
-                command: "GET"
+                commands: ["STOP"]
             }))
         }
     </script>

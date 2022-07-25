@@ -20,38 +20,50 @@ def audio_stream(ws: Websocket):
     _nframes = 0
     _comptype = ""
     _compname = ""
-    _duration = {
-        "hours": 0,
-        "minuets": 0,
-        "seconds": 0
-    }
+    _duration = {}
 
     while ws.connected:
-
         message = ws.receive(timeout=0)
+        should_continue = False
         if message is not None:
             data = json.loads(message)
             if "source" in data:
                 wav = wave.open(data["source"])
-            if "command" in data:
-                if data["command"] == "GET":
-                    ws.send(json.dumps({
-                        "command": "GET",
-                        "nchannels": _nchannels,
-                        "sampwidth": _sampwidth,
-                        "framerate": _framerate,
-                        "frames": _nframes,
-                        "comptype": _comptype,
-                        "compname": _compname,
-                        "duration": _duration
-                    }))
+                _nchannels, _sampwidth, _framerate, _nframes, _comptype, _compname = wav.getparams()
+                length = int(_nframes / _framerate)
+                hours = length // 3600
+                length %= 3600
+                minutes = length // 60
+                length %= 60
+                seconds = length
+                _duration = {
+                    "hours": hours,
+                    "minuets": minutes,
+                    "seconds": seconds
+                }
+            if "commands" in data:
+                for command in data["commands"]:
+                    if command == "GET":
+                        ws.send(json.dumps({
+                            "command": "GET",
+                            "nchannels": _nchannels,
+                            "sampwidth": _sampwidth,
+                            "framerate": _framerate,
+                            "frames": _nframes,
+                            "comptype": _comptype,
+                            "compname": _compname,
+                            "duration": _duration
+                        }))
 
-                if data["command"] == "STOP":
-                    if wav is not None:
-                        wav.close()
-                        wav = None
-                        print("stopped transmitting...")
-                    continue
+                    if command == "STOP":
+                        if wav is not None:
+                            wav.close()
+                            wav = None
+                            print("stopped transmitting...")
+                        should_continue = True
+
+                    if should_continue:
+                        continue
 
         if wav is not None:
             if wav.tell() >= wav.getnframes():
@@ -59,19 +71,6 @@ def audio_stream(ws: Websocket):
                 wav = None
                 print("finished transmitting chunks!")
                 continue
-
-            _nchannels, _sampwidth, _framerate, _nframes, _comptype, _compname = wav.getparams()
-            length = int(_nframes / _framerate)
-            hours = length // 3600
-            length %= 3600
-            minutes = length // 60
-            length %= 60
-            seconds = length
-            _duration = {
-                "hours": hours,
-                "minuets": minutes,
-                "seconds": seconds
-            }
 
             sample_rate = wav.getframerate()
             frame = wav.readframes(CHUNK_SIZE)
