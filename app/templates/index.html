@@ -5,14 +5,81 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vaporwave it!</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .player {
+            height: 54px;
+            width: 300px;
+            display: flex;
+            padding: 20px;
+            border-radius: 50px;
+            background: #f1f3f4;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .player .playback-tg,
+        .player .stopbtn {
+            color: #000;
+            cursor: pointer;
+        }
+
+        .player .playback-tg.gray,
+        .player .stopbtn.gray {
+            color: #a9abab;
+            cursor: unset;
+        }
+
+        .player .playback-tg::before,
+        .player .stopbtn::before {
+            font-size: 20px;
+        }
+
+        .player .timer {
+            font-size: 13px;
+        }
+
+        .player input[type='range'] {
+            cursor: pointer;
+            height: 4px;
+            margin-left: 15px;
+            border-radius: 25px;
+            pointer-events: none;
+            background: #c1c2c3;
+        }
+    </style>
 </head>
 <body>
+
+    <div class="player">
+        <i class="playback-tg bi bi-play-fill"></i>
+        <i class="gray stopbtn bi bi-stop-fill"></i>
+        <span class="timer">0:00 / 0:00</span>
+        <input class="track" id="track" type="range" min="0" max="0" value="0">
+    </div>
+
     <script>
         const protocol = location.protocol == "http:" ? "ws" : "wss"
-        const ws = new WebSocket(`${protocol}://localhost:5000/stream`)
+        const ws = new WebSocket(`${protocol}://${location.host}/stream`)
         ws.binaryType = "arraybuffer"
 
         let context
+        let time = 0
         let init = 0
         let nextTime = 0
         let audioStack = []
@@ -31,6 +98,42 @@
         }catch(e) {
             alert('Web Audio API is not supported in this browser')
         }
+
+        // handle audio player btn interations
+        const timer = document.querySelector(".timer")
+        const track = document.querySelector(".track")
+        const player = document.querySelector(".player")
+        const stopbtn = document.querySelector(".stopbtn")
+        const playbackToggle = document.querySelector(".playback-tg")
+        stopbtn.addEventListener("click", e => {if (!e.target.classList.contains("gray")) stop()})
+        playbackToggle.addEventListener("click", e => {
+            element = e.target
+            if (element.classList.contains("gray")) {
+                return
+            }
+
+            // start playback
+            if (context == undefined || context.state == "closed") {
+                stream("example.wav")
+                return
+            }
+
+            // pause playback
+            if (context.state == "running") {
+                playbackToggle.classList.add("bi-play-fill")
+                playbackToggle.classList.remove("bi-pause-fill")
+                context.suspend()
+                return
+            }
+
+            // resume playback
+            if (context.state == "suspended") {
+                context.resume()
+                playbackToggle.classList.add("bi-pause-fill")
+                playbackToggle.classList.remove("bi-play-fill")
+                return
+            }
+        })
 
         // handle the incomming audio data
         ws.onmessage = message => {
@@ -76,6 +179,10 @@
                 source: source,
                 commands: ["STREAM", "GET"]
             }))
+
+            stopbtn.classList.remove("gray")
+            playbackToggle.classList.add("bi-pause-fill")
+            playbackToggle.classList.remove("gray", "bi-play-fill")
         }
 
         // begin playing audio from buffer
@@ -104,7 +211,33 @@
             ws.send(JSON.stringify({
                 commands: ["STOP"]
             }))
+
+            time = 0
+            track.setAttribute("max", 0)
+            track.setAttribute("value", time)
+            timer.innerText = `0:00 / 0:00`
+            stopbtn.classList.add("gray")
+            playbackToggle.classList.add("bi-play-fill")
+            playbackToggle.classList.remove("bi-pause-fill")
         }
+
+        // custom listener
+        setInterval(() => {
+
+            if (context == undefined) return
+            if (context.state == "closed") return
+            if (context.state == "suspended") return
+
+            time++
+            if (time >= (duration.minuets * 60) + duration.seconds) {
+                stop()
+            }
+
+            track.stepUp(1)
+            track.setAttribute("max", (duration.minuets * 60) + duration.seconds)
+            let elapsed = new Date(time * 1000).toISOString().slice(14, 19)
+            timer.innerText = `${elapsed} / ${duration.minuets}:${duration.seconds}`
+        }, 1000)
     </script>
 </body>
 </html>
