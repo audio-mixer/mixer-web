@@ -25,9 +25,9 @@ try {
 
 // handle audio player btn interations
 const timer = document.querySelector(".timer");
-const track = document.querySelector(".track");
 const player = document.querySelector(".player");
 const stopbtn = document.querySelector(".stopbtn");
+const progress = document.querySelector(".progress");
 const playbackToggle = document.querySelector(".playback-tg");
 stopbtn.addEventListener("click", (e) => {if (!e.target.classList.contains("gray")) stop()});
 playbackToggle.addEventListener("click", (e) => {
@@ -135,8 +135,7 @@ function stop() {
     }));
 
     time = 0;
-    track.setAttribute("max", 0);
-    track.setAttribute("value", time);
+    progress.style.width = "0%"
     timer.innerText = `0:00 / 0:00`;
     stopbtn.classList.add("gray");
     playbackToggle.classList.add("bi-play-fill");
@@ -148,14 +147,14 @@ setInterval(() => {
     if (context == undefined) return;
     if (context.state == "closed") return;
     if (context.state == "suspended") return;
+    let totalDuration = (duration.minuets * 60) + duration.seconds
 
     time++;
-    if (time >= (duration.minuets * 60) + duration.seconds) {
+    if (time >= totalDuration) {
         stop();
     }
 
-    track.stepUp(1);
-    track.setAttribute("max", (duration.minuets * 60) + duration.seconds);
+    progress.style.width = `${(time / totalDuration) * 100}%`
     let elapsed = new Date(time * 1000).toISOString().slice(14, 19);
     timer.innerText = `${elapsed} / ${duration.minuets}:${duration.seconds}`;
 }, 1000);
