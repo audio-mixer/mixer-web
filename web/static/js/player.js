@@ -29,7 +29,7 @@ const track = document.querySelector(".track");
 const player = document.querySelector(".player");
 const stopbtn = document.querySelector(".stopbtn");
 const playbackToggle = document.querySelector(".playback-tg");
-stopbtn.addEventListener("click", (e) => {if (!e.target.classList.contains("gray")) stop();});
+stopbtn.addEventListener("click", (e) => {if (!e.target.classList.contains("gray")) stop()});
 playbackToggle.addEventListener("click", (e) => {
     element = e.target;
     if (element.classList.contains("gray")) {
@@ -63,12 +63,11 @@ playbackToggle.addEventListener("click", (e) => {
 ws.onmessage = (message) => {
     if (message.data instanceof ArrayBuffer) {
         context.decodeAudioData(message.data, (buffer) => {
-        // console.log(buffer.duration)
-        audioStack.push(buffer);
-        if ((init != 0) || (audioStack.length > 2)) {
-            init++;
-            playBuffer();
-        }
+            audioStack.push(buffer);
+            if ((init != 0) || (audioStack.length > 2)) {
+                init++;
+                playBuffer();
+            }
         });
 
         return;
@@ -116,7 +115,7 @@ function playBuffer() {
         source.buffer = buffer;
         source.connect(context.destination);
         if (nextTime == 0) {
-        nextTime = context.currentTime + 0.05;
+            nextTime = context.currentTime + 0.05;
         }
 
         source.start(nextTime);
