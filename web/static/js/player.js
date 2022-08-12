@@ -1,5 +1,5 @@
 const protocol = location.protocol == "http:" ? "ws" : "wss";
-const ws = new WebSocket(`${protocol}://${location.host}/stream`);
+const ws = new WebSocket(`${protocol}://${location.host}/youtube`);
 ws.binaryType = "arraybuffer";
 
 let context;
@@ -7,14 +7,6 @@ let time = 0;
 let init = 0;
 let nextTime = 0;
 let audioStack = [];
-
-// information about current track
-let nchannels = 0;
-let sampwidth = 0;
-let framerate = 0;
-let frames = 0;
-let comptype = "";
-let compname = "";
 let duration = { hours: 0, minuets: 0, seconds: 0 };
 
 try {
@@ -64,10 +56,12 @@ ws.onmessage = (message) => {
     if (message.data instanceof ArrayBuffer) {
         context.decodeAudioData(message.data, (buffer) => {
             audioStack.push(buffer);
-            if ((init != 0) || (audioStack.length > 2)) {
-                init++;
-                playBuffer();
-            }
+            // if ((init != 0) || (audioStack.length > 2)) {
+            //     init++;
+            //     playBuffer();
+            // }
+
+            playBuffer();
         });
 
         return;
@@ -77,14 +71,8 @@ ws.onmessage = (message) => {
     cmdUsed = data.command;
     switch (cmdUsed) {
         case "GET":
-        nchannels = data.nchannels;
-        sampwidth = data.sampwidth;
-        framerate = data.framerate;
-        comptype = data.comptype;
-        compname = data.compname;
-        duration = data.duration;
-        frames = data.frames;
-        break;
+            duration = data.duration;
+            break;
     }
 };
 
@@ -95,9 +83,11 @@ function stream(source = "example.wav") {
 
     // create audio context
     context = new AudioContext();
+    context.suspend();
 
     // initially send information to the server to fetch the audio stream
     ws.send(JSON.stringify({
+        q: "Mario & Chill",
         source: source,
         commands: ["STREAM", "GET"],
     }));
@@ -118,6 +108,7 @@ function playBuffer() {
             nextTime = context.currentTime + 0.05;
         }
 
+        context.resume();
         source.start(nextTime);
         nextTime += source.buffer.duration;
     }
@@ -129,7 +120,8 @@ function stop() {
         return;
     }
 
-    context.close()[init, nextTime] = [0, 0];
+    context.close();
+    [init, nextTime] = [0, 0];
     ws.send(JSON.stringify({
         commands: ["STOP"],
     }));
@@ -147,7 +139,8 @@ setInterval(() => {
     if (context == undefined) return;
     if (context.state == "closed") return;
     if (context.state == "suspended") return;
-    let totalDuration = (duration.minuets * 60) + duration.seconds
+    let totalDuration = (duration.minuets * 60) + duration.seconds;
+    if (totalDuration == 0) return;
 
     time++;
     if (time >= totalDuration) {
