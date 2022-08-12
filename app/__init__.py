@@ -1,5 +1,14 @@
+import decouple
+from decouple import config
 from flask import Flask
 from flask_sock import Sock
+
+KEY = ""
+URL = "https://www.googleapis.com/youtube/v3"
+try:
+    KEY = config("API_KEY")
+except decouple.UndefinedValueError:
+    exit(1)
 
 server = Flask(
     __name__,
