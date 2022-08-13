@@ -1,7 +1,6 @@
 import wave
 
-def this_function_is_in_master_branch():
-    pass
+#this is the handle_stereo branch
 
 BUFFER_SIZE = 2 ** 6
 
