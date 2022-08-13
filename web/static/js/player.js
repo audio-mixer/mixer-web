@@ -1,5 +1,5 @@
 const protocol = location.protocol == "http:" ? "ws" : "wss";
-const ws = new WebSocket(`${protocol}://${location.host}/youtube`);
+const ws = new WebSocket(`${protocol}://${location.host}/stream`);
 ws.binaryType = "arraybuffer";
 
 let context;
@@ -56,12 +56,10 @@ ws.onmessage = (message) => {
     if (message.data instanceof ArrayBuffer) {
         context.decodeAudioData(message.data, (buffer) => {
             audioStack.push(buffer);
-            // if ((init != 0) || (audioStack.length > 2)) {
-            //     init++;
-            //     playBuffer();
-            // }
-
-            playBuffer();
+            if ((init != 0) || (audioStack.length > 2)) {
+                init++;
+                playBuffer();
+            }
         });
 
         return;
