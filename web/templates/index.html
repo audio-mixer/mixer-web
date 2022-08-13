@@ -10,17 +10,63 @@
     <link rel="stylesheet" href={{ url_for('static', filename='css/player.css') }}>
     <script defer src={{ url_for('static', filename='js/player.js') }}></script>
     <style>
+
+        body {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         .controls {
-            width: 70%;
-            margin: 0 15%;
+            display: flex;
+            width: 250px;
+            height: 200px;
+            border-radius: 7px;
             position: absolute;
-            bottom: 50px;
+            flex-direction: column;
+            justify-content: space-evenly;
+        }
+
+        .slider {
+            width: 100%;
+        }
+
+        .player {
+            flex-direction: column;
+            height: unset;
+            padding: 15px;
+            border-radius: 7px;
+            width: 250px;
+        }
+
+        .player-controls {
+            justify-content: space-between;
+        }
+
+        .track {
+            width: 100%;
+            height: 5px;
+            flex-grow: 0;
+            margin-top: 15px;
         }
     </style>
 </head>
 <body>
     <div class="controls">
+
+        <input class="slider" type="range" min="0" max="40" value="30" />        
         {% include "partials/player.html" %}
     </div>
+
+    <script>
+        let slider = document.querySelector(".slider")
+        slider.oninput = (e) => {
+            ws.send(JSON.stringify({
+                commands: ["UPDATE_FILTER"],
+                value: e.target.value
+            }))
+        }
+    </script>
 </body>
 </html>
