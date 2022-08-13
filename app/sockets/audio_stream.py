@@ -84,8 +84,8 @@ def audio_stream(ws: Websocket):
             data = b'RIFF' + struct.pack(
                 '<L4s4sLHHLLHH4s', 36 + wav.getnframes() * wav.getnchannels() * wav.getsampwidth(),
                 b'WAVE', b'fmt ', 16, 0x0001, wav.getnchannels(), wav.getframerate(),
-                                   wav.getnchannels() * wav.getframerate() * wav.getsampwidth(),
-                                   wav.getnchannels() * wav.getsampwidth(), wav.getsampwidth() * 8, b'data'
+                wav.getnchannels() * wav.getframerate() * wav.getsampwidth(),
+                wav.getnchannels() * wav.getsampwidth(), wav.getsampwidth() * 8, b'data'
             ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth()) + frame
 
             ws.send(data)
@@ -148,6 +148,7 @@ def youtube_stream(ws: Websocket):
                         _audio = None
                         _stream = None
                         _buffer = io.BytesIO()
+                        _buffer2 = io.BytesIO()
                         should_continue = True
                         print("stopped transmitting...")
 
@@ -176,7 +177,7 @@ def _parse_iso_datetime(isostring: str) -> dict:
     for char in isostring:
         try:
             v += v.join(f"{str(int(char))}")
-        except ValueError as e:
+        except ValueError:
             if char == "H":
                 h = int(v)
                 v = ""
