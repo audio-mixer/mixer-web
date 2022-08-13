@@ -52,6 +52,10 @@ def audio_stream(ws: Websocket):
                             "duration": _duration
                         }))
 
+                    if command == "UPDATE_FILTER":
+                        value = data["value"]
+                        print(value)
+
                     if command == "STOP":
                         if wav is not None:
                             wav.close()
