@@ -16,7 +16,6 @@ from simple_websocket.ws \
 
 from urllib.error import HTTPError
 
-
 CHUNK_SIZE = 10 * 1024
 
 @socket.route("/stream")

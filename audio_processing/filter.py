@@ -1,5 +1,8 @@
 import wave
 
+def this_function_is_in_master_branch():
+    pass
+
 BUFFER_SIZE = 2 ** 6
 
 class Channel():
