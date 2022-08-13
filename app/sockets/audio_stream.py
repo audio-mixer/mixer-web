@@ -7,6 +7,7 @@ import requests
 import urllib.parse
 
 import app
+from audio_processing import filter
 from app import socket
 from pytube import YouTube
 from pytube import request
@@ -15,8 +16,8 @@ from simple_websocket.ws \
 
 from urllib.error import HTTPError
 
-CHUNK_SIZE = 10 * 1024
 
+CHUNK_SIZE = 10 * 1024
 
 @socket.route("/stream")
 def audio_stream(ws: Websocket):
@@ -28,6 +29,9 @@ def audio_stream(ws: Websocket):
     _comptype = ""
     _compname = ""
     _duration = {}
+    #Creating channel objects before the loop
+    channel_1 = filter.Channel()
+    channel_1.filters.append(filter.Convolution(filter.moving_average_ir(30)))
 
     while ws.connected:
         message = ws.receive(timeout=0)
@@ -80,14 +84,14 @@ def audio_stream(ws: Websocket):
                 continue
 
             sample_rate = wav.getframerate()
-            frame = wav.readframes(CHUNK_SIZE)
+            channel_1.buffer = wav.readframes(CHUNK_SIZE)
+            channel_1 = filter.process(channel_1, wav.getsampwidth())
             data = b'RIFF' + struct.pack(
                 '<L4s4sLHHLLHH4s', 36 + wav.getnframes() * wav.getnchannels() * wav.getsampwidth(),
                 b'WAVE', b'fmt ', 16, 0x0001, wav.getnchannels(), wav.getframerate(),
                 wav.getnchannels() * wav.getframerate() * wav.getsampwidth(),
                 wav.getnchannels() * wav.getsampwidth(), wav.getsampwidth() * 8, b'data'
-            ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth()) + frame
-
+            ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth()) + channel_1.buffer
             ws.send(data)
             time.sleep(0.8 * CHUNK_SIZE / sample_rate)
 

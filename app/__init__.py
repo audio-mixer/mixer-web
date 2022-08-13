@@ -1,17 +1,7 @@
 import os
 
-import decouple
-from decouple import config
 from flask import Flask
 from flask_sock import Sock
-
-KEY = os.getenv("API_KEY")
-URL = "https://www.googleapis.com/youtube/v3"
-if KEY is None:
-    try:
-        KEY = config("API_KEY")
-    except decouple.UndefinedValueError:
-        exit(1)
 
 server = Flask(
     __name__,

@@ -64,11 +64,12 @@ class PlaybackSpeed():
         #this object doesn't have a rollover, though its filter does.
         return output
 
-def process(input):
-    channel.buffer = wav_to_num_samp(channel.buffer, wave.getsampwidth(channel.buffer))
+def process(channel, sample_width):
+    channel.buffer = wav_to_num_samp(channel.buffer, sample_width)
+    channel.buffer = Buffer(channel.buffer)
     for filter in channel.filters:
         channel.buffer = filter.execute(channel.buffer)
-    channel.buffer = num_samp_to_wav(channel.buffer, wave.getsampwidth(channel.buffer))
+    channel.buffer = num_samp_to_wav(channel.buffer.buffer, sample_width)
     return channel
 
 def main():
