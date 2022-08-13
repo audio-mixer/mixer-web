@@ -1,7 +1,6 @@
 import io
 import json
 import struct
-import time
 import wave
 import requests
 import urllib.parse
@@ -18,39 +17,12 @@ from urllib.error import HTTPError
 
 BUFFER_SIZE = 2 ** 8
 
+
 @socket.route("/stream")
 def audio_stream(ws: Websocket):
     wav = None
-    _nchannels = 2
-    _sampwidth = 0
-    _framerate = 0
-    _nframes = 0
-    _comptype = ""
-    _compname = ""
+    channels = None
     _duration = {}
-
-    #Get the info about the file before the loop
-    while wav == None:
-        message = ws.receive(timeout=0)
-        if message is not None:
-            data = json.loads(message)
-            if "source" in data:
-                wav = wave.open(data["source"])
-                _nchannels, _sampwidth, _framerate, _nframes, _comptype, _compname = wav.getparams()
-                length = int(_nframes / _framerate)
-                hours = length // 3600
-                length %= 3600
-                minutes = length // 60
-                length %= 60
-                seconds = length
-                _duration = {
-                    "hours": hours,
-                    "minuets": minutes,
-                    "seconds": seconds
-                }
-
-    #Creating channel objects before the loop
-    channels = filter.create_channels(wav)
 
     while ws.connected:
         message = ws.receive(timeout=0)
@@ -59,8 +31,7 @@ def audio_stream(ws: Websocket):
             data = json.loads(message)
             if "source" in data:
                 wav = wave.open(data["source"])
-                _nchannels, _sampwidth, _framerate, _nframes, _comptype, _compname = wav.getparams()
-                length = int(_nframes / _framerate)
+                length = int(wav.getnframes() / wav.getframerate())
                 hours = length // 3600
                 length %= 3600
                 minutes = length // 60
@@ -71,17 +42,13 @@ def audio_stream(ws: Websocket):
                     "minuets": minutes,
                     "seconds": seconds
                 }
+
+                _channels = filter.create_channels(wav)
             if "commands" in data:
                 for command in data["commands"]:
                     if command == "GET":
                         ws.send(json.dumps({
                             "command": "GET",
-                            "nchannels": _nchannels,
-                            "sampwidth": _sampwidth,
-                            "framerate": _framerate,
-                            "frames": _nframes,
-                            "comptype": _comptype,
-                            "compname": _compname,
                             "duration": _duration
                         }))
 
@@ -101,8 +68,10 @@ def audio_stream(ws: Websocket):
                 wav = None
                 print("finished transmitting chunks!")
                 continue
+
             sample_rate = wav.getframerate()
-            #call to the filter module here vvv
+
+            # call to the filter module here vvv
             raw_wav = wav.readframes(BUFFER_SIZE)
             channels = filter.process(channels, raw_wav, wav.getsampwidth())
             processed_audio = filter.combine_wav_channels(channels, wav.getsampwidth())
