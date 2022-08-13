@@ -1,4 +1,3 @@
-import pyaudio
 import wave
 
 BUFFER_SIZE = 2 ** 6
@@ -72,44 +71,6 @@ def process(channel, sample_width):
     channel.buffer = num_samp_to_wav(channel.buffer.buffer, sample_width)
     return channel
 
-def main():
-    # open the wave files
-    file_1 = wave.open("audio/whistle.wav", "rb")
-    file_2 = wave.open("audio/voice.wav", "rb")
-    sample_width = file_1.getsampwidth()
-    # initialize pyaudio
-    p = init_pyaudio()
-    print(pyaudio.get_format_from_width(sample_width))
-    # initialize the stream
-    stream = p.open(format =p.get_format_from_width(sample_width),
-                    channels = 1,
-                    rate = int(file_1.getframerate()),
-                    output = True)
-
-    #create the filters
-    lowpass1 = Convolution(moving_average_ir(2))
-    lowpass2 = Convolution(moving_average_ir(20))
-    slow = PlaybackSpeed(.75)
-
-    #main loop
-    while True:
-        in_1 = get_buffer_from_file(file_1, sample_width) #get buffers from files
-        in_2 = get_buffer_from_file(file_2, sample_width)
-        output = mix(in_1, in_2) #mix them together
-        if len(output.buffer) == 0: #check for stop condition
-            break
-        ######## MIX BUS PROCESSING STARTS HERE ########
-        output = slow.execute(output)
-        output = lowpass2.execute(output)
-        ################################################
-        play(output, sample_width, stream) #play the audio
-
-    # stop and close the stream and pyaudio
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
-    return
-
 def mix(in_1, in_2, *args, length = False):
     #if buffer objects were given, extract the lists.
     buffer = False
@@ -170,22 +131,3 @@ def num_samp_to_wav(buffer, sample_width):
     for sample in buffer:
         output_buffer += sample.to_bytes(sample_width,"little",signed = True)
     return output_buffer
-
-def play(output, sample_width, stream):
-    threshold = (2 ** (sample_width * 8 - 1)) - 1
-    for i, val in enumerate(output.buffer):
-        if not -threshold < val < threshold:
-            print("~~~Clipped~~~")
-            if val > threshold:
-                output.buffer[i] = threshold
-            else:
-                output.buffer[i] = -threshold
-    stream.write(num_samp_to_wav(output.buffer, sample_width))
-    return
-
-def init_pyaudio(): #initializes pyaudio
-    p = pyaudio.PyAudio()
-    return p
-
-if __name__ == "__main__":
-    main()
