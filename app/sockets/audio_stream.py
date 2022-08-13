@@ -43,7 +43,7 @@ def audio_stream(ws: Websocket):
                     "seconds": seconds
                 }
 
-                _channels = filter.create_channels(wav)
+                channels = filter.create_channels(wav)
             if "commands" in data:
                 for command in data["commands"]:
                     if command == "GET":
