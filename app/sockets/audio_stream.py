@@ -94,7 +94,7 @@ def audio_stream(ws: Websocket):
             ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth()) + channel_1.buffer
 
             ws.send(data)
-            time.sleep(0.4 * CHUNK_SIZE / sample_rate)
+            # time.sleep(0.4 * CHUNK_SIZE / sample_rate)
 
 
 @socket.route("/youtube")
