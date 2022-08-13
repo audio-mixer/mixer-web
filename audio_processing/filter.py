@@ -2,7 +2,7 @@ import wave
 
 class Channel():
     def __init__(self):
-        self.filters = []
+        self.filters = {}
         self.buffer = []
 
 class Buffer():
@@ -70,7 +70,7 @@ def process(channels, raw_wav, sample_width):
 
     for channel, num_channel in zip(channels, num_channels):
         channel.buffer = Buffer(num_channel)
-        for filter in channel.filters:
+        for filter in channel.filters.values():
             channel.buffer = filter.execute(channel.buffer)
         channel.buffer.buffer = num_samp_to_wav(channel.buffer.buffer, sample_width)
     return channels
@@ -123,8 +123,8 @@ def create_channels(wave):
     channels = []
     for i in range(wave.getnchannels()):
         channel = Channel()
-        channel.filters.append(Convolution(moving_average_ir(15)))
-        channel.filters.append(PlaybackSpeed(1.2))
+        channel.filters["lowpass"] = Convolution(moving_average_ir(15))
+        channel.filters["speed"] = PlaybackSpeed(1.2)
         channels.append(channel)
     return channels
 
