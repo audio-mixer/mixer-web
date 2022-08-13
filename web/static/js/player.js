@@ -81,7 +81,6 @@ function stream(source = "example.wav") {
 
     // create audio context
     context = new AudioContext();
-    context.suspend();
 
     // initially send information to the server to fetch the audio stream
     ws.send(JSON.stringify({
@@ -106,7 +105,6 @@ function playBuffer() {
             nextTime = context.currentTime + 0.05;
         }
 
-        context.resume();
         source.start(nextTime);
         nextTime += source.buffer.duration;
     }
