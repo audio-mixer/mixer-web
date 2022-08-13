@@ -16,7 +16,7 @@ from simple_websocket.ws \
 
 from urllib.error import HTTPError
 
-CHUNK_SIZE = 10 * 1024
+BUFFER_SIZE = 2 ** 8
 
 @socket.route("/stream")
 def audio_stream(ws: Websocket):
@@ -28,9 +28,29 @@ def audio_stream(ws: Websocket):
     _comptype = ""
     _compname = ""
     _duration = {}
+
+    #Get the info about the file before the loop
+    while wav == None:
+        message = ws.receive(timeout=0)
+        if message is not None:
+            data = json.loads(message)
+            if "source" in data:
+                wav = wave.open(data["source"])
+                _nchannels, _sampwidth, _framerate, _nframes, _comptype, _compname = wav.getparams()
+                length = int(_nframes / _framerate)
+                hours = length // 3600
+                length %= 3600
+                minutes = length // 60
+                length %= 60
+                seconds = length
+                _duration = {
+                    "hours": hours,
+                    "minuets": minutes,
+                    "seconds": seconds
+                }
+
     #Creating channel objects before the loop
-    channel_1 = filter.Channel()
-    channel_1.filters.append(filter.Convolution(filter.moving_average_ir(30)))
+    channels = filter.create_channels(wav)
 
     while ws.connected:
         message = ws.receive(timeout=0)
@@ -81,19 +101,20 @@ def audio_stream(ws: Websocket):
                 wav = None
                 print("finished transmitting chunks!")
                 continue
-
             sample_rate = wav.getframerate()
-            channel_1.buffer = wav.readframes(CHUNK_SIZE)
-            channel_1 = filter.process(channel_1, wav.getsampwidth())
+            #call to the filter module here vvv
+            raw_wav = wav.readframes(BUFFER_SIZE)
+            channels = filter.process(channels, raw_wav, wav.getsampwidth())
+            processed_audio = filter.combine_wav_channels(channels, wav.getsampwidth())
             data = b'RIFF' + struct.pack(
                 '<L4s4sLHHLLHH4s', 36 + wav.getnframes() * wav.getnchannels() * wav.getsampwidth(),
                 b'WAVE', b'fmt ', 16, 0x0001, wav.getnchannels(), wav.getframerate(),
                 wav.getnchannels() * wav.getframerate() * wav.getsampwidth(),
                 wav.getnchannels() * wav.getsampwidth(), wav.getsampwidth() * 8, b'data'
-            ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth()) + channel_1.buffer
+            ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth()) + processed_audio
 
             ws.send(data)
-            # time.sleep(0.4 * CHUNK_SIZE / sample_rate)
+            # time.sleep(0.4 * filter.BUFFER_SIZE / sample_rate)
 
 
 @socket.route("/youtube")

@@ -1,9 +1,5 @@
 import wave
 
-#this is the handle_stereo branch
-
-BUFFER_SIZE = 2 ** 6
-
 class Channel():
     def __init__(self):
         self.filters = []
@@ -13,7 +9,9 @@ class Buffer():
     """A simple object that contains a buffer.
     Instead of this, you could just use a list as the buffer,
     but this class gives me the option to implement more features such as
-    an offset point or something in the future."""
+    an offset point or something in the future.
+    Update: it's been several days and I think this class is just an unnecessary
+    pain in the ass"""
     def __init__(self, buffer = []):
         self.buffer = buffer
 
@@ -49,7 +47,7 @@ class Convolution(Rollover):
 class PlaybackSpeed():
     def __init__(self, speed):
         self.speed = speed
-        self.lowpass_filter = Convolution(moving_average_ir(20))
+        self.lowpass_filter = Convolution(moving_average_ir(10))
 
     def execute(self, input):
         step = 1 / self.speed #how many output samples per input sample (on average)
@@ -65,13 +63,17 @@ class PlaybackSpeed():
         #this object doesn't have a rollover, though its filter does.
         return output
 
-def process(channel, sample_width):
-    channel.buffer = wav_to_num_samp(channel.buffer, sample_width)
-    channel.buffer = Buffer(channel.buffer)
-    for filter in channel.filters:
-        channel.buffer = filter.execute(channel.buffer)
-    channel.buffer = num_samp_to_wav(channel.buffer.buffer, sample_width)
-    return channel
+def process(channels, raw_wav, sample_width):
+    wav_channels = separate_wav_channels(raw_wav, len(channels), sample_width)
+    #wav_channels[0] is an empty bytes object for some reasaon..
+    num_channels = [wav_to_num_samp(wav_channel, sample_width) for wav_channel in wav_channels]
+
+    for channel, num_channel in zip(channels, num_channels):
+        channel.buffer = Buffer(num_channel)
+        for filter in channel.filters:
+            channel.buffer = filter.execute(channel.buffer)
+        channel.buffer.buffer = num_samp_to_wav(channel.buffer.buffer, sample_width)
+    return channels
 
 def mix(in_1, in_2, *args, length = False):
     #if buffer objects were given, extract the lists.
@@ -117,8 +119,33 @@ def convolve(input, kernel):
 def moving_average_ir(strength):
     return [1/strength for i in range(strength)]
 
+def create_channels(wave):
+    channels = []
+    for i in range(wave.getnchannels()):
+        channel = Channel()
+        channel.filters.append(Convolution(moving_average_ir(15)))
+        channel.filters.append(PlaybackSpeed(1.2))
+        channels.append(channel)
+    return channels
+
 def get_buffer_from_file(file, sample_width):
     return Buffer(wav_to_num_samp(file.readframes(BUFFER_SIZE), sample_width))
+
+def separate_wav_channels(raw_wav, n_channels, sample_width):
+    wav_channels = []
+    for i in range(n_channels):
+        wav_channels.append(bytes())
+        for j in range(len(raw_wav[::sample_width])):
+            wav_channels[i] += raw_wav[(i * sample_width) + (j * sample_width) :
+                                       (i * sample_width) + ((j + 1) * sample_width)]
+    return wav_channels
+
+def combine_wav_channels(channels, sample_width):
+    output = bytes()
+    for i in range(len(channels[0].buffer.buffer[::sample_width])):
+        for channel in channels:
+            output += channel.buffer.buffer[i * sample_width : (i + 1) * sample_width]
+    return output
 
 def wav_to_num_samp(buffer, sample_width):
     num_buffer = []
