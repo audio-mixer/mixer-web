@@ -9,52 +9,14 @@
     <link rel="stylesheet" href={{ url_for('static', filename='css/global.css') }}>
     <link rel="stylesheet" href={{ url_for('static', filename='css/player.css') }}>
     <script defer src={{ url_for('static', filename='js/player.js') }}></script>
-    <style>
 
-        body {
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .controls {
-            display: flex;
-            width: 250px;
-            height: 200px;
-            border-radius: 7px;
-            position: absolute;
-            flex-direction: column;
-            justify-content: space-evenly;
-        }
-
-        .slider {
-            width: 100%;
-        }
-
-        .player {
-            flex-direction: column;
-            height: unset;
-            padding: 15px;
-            border-radius: 7px;
-            width: 250px;
-        }
-
-        .player-controls {
-            justify-content: space-between;
-        }
-
-        .track {
-            width: 100%;
-            height: 5px;
-            flex-grow: 0;
-            margin-top: 15px;
-        }
-    </style>
 </head>
 <body>
     <div class="controls">
-        <input class="slider" type="range" min="1" max="40" value="30" />
+        <div class="slider-container">
+            <input class="slider" type="range" min="1" max="40" value="30" />
+            <p class="effect-title">low pass</p>
+        </div>
         {% include "partials/player.html" %}
     </div>
 

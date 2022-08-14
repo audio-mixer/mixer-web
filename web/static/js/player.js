@@ -99,7 +99,7 @@ function stream(source = "example.wav") {
 
     stopbtn.classList.remove("gray");
     playbackToggle.classList.add("bi-pause-fill");
-    playbackToggle.classList.remove("gray", "bi-play-fill");
+    playbackToggle.classList.remove("bi-play-fill");
 }
 
 // begin playing audio from buffer
@@ -141,6 +141,7 @@ function stop() {
     progress.style.width = "0%"
     timer.innerText = `0:00 / 0:00`;
     stopbtn.classList.add("gray");
+    playbackToggle.classList.remove("gray");
     playbackToggle.classList.add("bi-play-fill");
     playbackToggle.classList.remove("bi-pause-fill");
 }
