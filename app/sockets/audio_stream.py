@@ -15,13 +15,15 @@ from simple_websocket.ws \
 
 from urllib.error import HTTPError
 
-BUFFER_SIZE = 2 ** 8
+# BUFFER_SIZE = 2 ** 8
+BUFFER_SIZE = 1024
 
 
 @socket.route("/stream")
 def audio_stream(ws: Websocket):
     wav = None
     channels = None
+    _source = ""
     _duration = {}
 
     while ws.connected:
@@ -30,7 +32,8 @@ def audio_stream(ws: Websocket):
         if message is not None:
             data = json.loads(message)
             if "source" in data:
-                wav = wave.open(data["source"])
+                _source = data["source"]
+                wav = wave.open(_source)
                 length = int(wav.getnframes() / wav.getframerate())
                 hours = length // 3600
                 length %= 3600
@@ -52,9 +55,34 @@ def audio_stream(ws: Websocket):
                             "duration": _duration
                         }))
 
+                    if command == "NEXT":
+                        if wav is not None:
+                            if wav.tell() >= wav.getnframes():
+                                wav.close()
+                                wav = None
+                                should_continue = True
+                                print("finished transmitting chunks!")
+
+                            sample_rate = wav.getframerate()
+                            # call to the filter module here vvv
+                            raw_wav = wav.readframes(BUFFER_SIZE)
+                            channels = filter.process(channels, raw_wav, wav.getsampwidth())
+                            processed_audio = filter.combine_wav_channels(channels, wav.getsampwidth())
+                            headers = b'RIFF' + struct.pack(
+                                '<L4s4sLHHLLHH4s', 36 + wav.getnframes() * wav.getnchannels() * wav.getsampwidth(),
+                                b'WAVE', b'fmt ', 16, 0x0001, wav.getnchannels(), wav.getframerate(),
+                                wav.getnchannels() * wav.getframerate() * wav.getsampwidth(),
+                                wav.getnchannels() * wav.getsampwidth(), wav.getsampwidth() * 8, b'data'
+                            ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth())
+
+                            ws.send(headers + processed_audio)
+                            # time.sleep(0.4 * filter.BUFFER_SIZE / sample_rate)
+
                     if command == "UPDATE_FILTER":
-                        value = data["value"]
-                        print(value)
+                        if channels is not None:
+                            value = int(data["value"])
+                            for chan in channels:
+                                chan.filters["lowpass"] = filter.Convolution(filter.moving_average_ir(value))
 
                     if command == "STOP":
                         if wav is not None:
@@ -65,29 +93,6 @@ def audio_stream(ws: Websocket):
 
                 if should_continue:
                     continue
-
-        if wav is not None:
-            if wav.tell() >= wav.getnframes():
-                wav.close()
-                wav = None
-                print("finished transmitting chunks!")
-                continue
-
-            sample_rate = wav.getframerate()
-
-            # call to the filter module here vvv
-            raw_wav = wav.readframes(BUFFER_SIZE)
-            channels = filter.process(channels, raw_wav, wav.getsampwidth())
-            processed_audio = filter.combine_wav_channels(channels, wav.getsampwidth())
-            data = b'RIFF' + struct.pack(
-                '<L4s4sLHHLLHH4s', 36 + wav.getnframes() * wav.getnchannels() * wav.getsampwidth(),
-                b'WAVE', b'fmt ', 16, 0x0001, wav.getnchannels(), wav.getframerate(),
-                wav.getnchannels() * wav.getframerate() * wav.getsampwidth(),
-                wav.getnchannels() * wav.getsampwidth(), wav.getsampwidth() * 8, b'data'
-            ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth()) + processed_audio
-
-            ws.send(data)
-            # time.sleep(0.4 * filter.BUFFER_SIZE / sample_rate)
 
 
 @socket.route("/youtube")

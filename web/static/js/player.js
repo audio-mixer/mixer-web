@@ -2,11 +2,17 @@ const protocol = location.protocol == "http:" ? "ws" : "wss";
 const ws = new WebSocket(`${protocol}://${location.host}/stream`);
 ws.binaryType = "arraybuffer";
 
+const BUFFER_SIZE = 2;
+
 let context;
+let source;
 let time = 0;
 let init = 0;
 let nextTime = 0;
+let active_buffer = 0;
+let chunks_played = 0;
 let audioStack = [];
+let streaming = false;
 let duration = { hours: 0, minuets: 0, seconds: 0 };
 
 try {
@@ -39,12 +45,14 @@ playbackToggle.addEventListener("click", (e) => {
         playbackToggle.classList.add("bi-play-fill");
         playbackToggle.classList.remove("bi-pause-fill");
         context.suspend();
+        streaming = false;
         return;
     }
 
     // resume playback
     if (context.state == "suspended") {
         context.resume();
+        streaming = true;
         playbackToggle.classList.add("bi-pause-fill");
         playbackToggle.classList.remove("bi-play-fill");
         return;
@@ -83,8 +91,8 @@ function stream(source = "example.wav") {
     context = new AudioContext();
 
     // initially send information to the server to fetch the audio stream
+    streaming = true;
     ws.send(JSON.stringify({
-        q: "Mario & Chill",
         source: source,
         commands: ["STREAM", "GET"],
     }));
@@ -98,7 +106,7 @@ function stream(source = "example.wav") {
 function playBuffer() {
     while (audioStack.length) {
         let buffer = audioStack.shift();
-        let source = context.createBufferSource();
+        source = context.createBufferSource();
         source.buffer = buffer;
         source.connect(context.destination);
         if (nextTime == 0) {
@@ -107,6 +115,10 @@ function playBuffer() {
 
         source.start(nextTime);
         nextTime += source.buffer.duration;
+        source.addEventListener("ended", () => {
+            chunks_played++;
+            active_buffer--;
+        });
     }
 }
 
@@ -123,6 +135,9 @@ function stop() {
     }));
 
     time = 0;
+    active_buffer = 0;
+    chunks_played = 0;
+    streaming = false;
     progress.style.width = "0%"
     timer.innerText = `0:00 / 0:00`;
     stopbtn.classList.add("gray");
@@ -147,3 +162,16 @@ setInterval(() => {
     let elapsed = new Date(time * 1000).toISOString().slice(14, 19);
     timer.innerText = `${elapsed} / ${duration.minuets}:${duration.seconds}`;
 }, 1000);
+
+setInterval(() => {
+
+    if (streaming) {
+        if (active_buffer <= BUFFER_SIZE) {
+            
+            active_buffer++;
+            ws.send(JSON.stringify({
+                commands: ["NEXT"]
+            }));
+        }
+    }
+})
