@@ -30,7 +30,7 @@ playbackToggle.addEventListener("click", (e) => {
 
     // start playback
     if (context == undefined || context.state == "closed") {
-        stream("example_mono.wav");
+        stream("example.wav");
         return;
     }
 
