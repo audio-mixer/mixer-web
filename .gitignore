@@ -5,3 +5,4 @@ venv/*
 app/__pycache__
 app/*/__pycache__
 audio_processing/__pycache__
+audio_processing/__pycache__/filter.cpython-310.pyc

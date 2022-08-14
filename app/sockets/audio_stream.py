@@ -4,6 +4,7 @@ import struct
 import wave
 import requests
 import urllib.parse
+import math
 
 import app
 from audio_processing import filter
@@ -79,8 +80,16 @@ def audio_stream(ws: Websocket):
                     if command == "UPDATE_FILTER":
                         if channels is not None:
                             value = int(data["value"])
+                            value = 0.5 - (math.log(value,10) / 4)
                             for chan in channels:
-                                chan.filters["lowpass"] = filter.Convolution(filter.moving_average_ir(value))
+                                chan.filters["lowpass"].kernel = filter.windowed_sinc_ir(value)
+
+                    if command == "UPDATE_SPEED":
+                        if channels is not None:
+                            value = int(data["value"])
+                            value = value/100
+                            for chan in channels:
+                                chan.filters["speed"].update(value)
 
                     if command == "STOP":
                         if wav is not None:
