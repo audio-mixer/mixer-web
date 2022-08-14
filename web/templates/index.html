@@ -14,21 +14,36 @@
 <body>
     <div class="controls">
         <div class="slider-container">
-            <input class="slider" type="range" min="1" max="100" value="0" />
-            <p class="effect-title">low pass</p>
+            <input class="lowpass_slider" type="range" min="1" max="100" value="0" />
+            <p class="effect-title">Low-pass</p>
+        </div>
+        <div class="slider-container">
+            <input class="playback_slider" type="range" min="50" max="100" value="100" />
+            <p class="effect-title">Playback Speed</p>
         </div>
         {% include "partials/player.html" %}
     </div>
 
     <script>
-        let slider = document.querySelector(".slider")
-        slider.oninput = (e) => {
+        let lowpass_slider = document.querySelector(".lowpass_slider")
+        let playback_slider = document.querySelector(".playback_slider")
+        lowpass_slider.oninput = (e) => {
             if (context == undefined || context.state == "closed") {
                 return;
             }
 
             ws.send(JSON.stringify({
                 commands: ["UPDATE_FILTER"],
+                value: e.target.value,
+            }))
+        }
+        playback_slider.oninput = (e) => {
+            if (context == undefined || context.state == "closed") {
+                return;
+            }
+
+            ws.send(JSON.stringify({
+                commands: ["UPDATE_SPEED"],
                 value: e.target.value,
             }))
         }

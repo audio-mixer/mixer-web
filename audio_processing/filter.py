@@ -50,7 +50,11 @@ class Convolution(Rollover):
 class PlaybackSpeed():
     def __init__(self, speed):
         self.speed = speed
-        self.lowpass_filter = Convolution(moving_average_ir(1))
+        self.lowpass_filter = Convolution(windowed_sinc_ir(1 - speed, 0.03))
+
+    def update(self, speed):
+        self.speed = speed
+        self.lowpass_filter.kernel = windowed_sinc_ir(1 - speed, 0.03)
 
     def execute(self, input):
         step = 1 / self.speed #how many output samples per input sample (on average)
@@ -141,8 +145,8 @@ def create_channels(wave):
     channels = []
     for i in range(wave.getnchannels()):
         channel = Channel()
+        channel.filters["speed"] = PlaybackSpeed(.75)
         channel.filters["lowpass"] = Convolution(windowed_sinc_ir(.5))
-        channel.filters["speed"] = PlaybackSpeed(1)
         channels.append(channel)
     return channels
 

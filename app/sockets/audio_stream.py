@@ -84,6 +84,13 @@ def audio_stream(ws: Websocket):
                             for chan in channels:
                                 chan.filters["lowpass"].kernel = filter.windowed_sinc_ir(value)
 
+                    if command == "UPDATE_SPEED":
+                        if channels is not None:
+                            value = int(data["value"])
+                            value = value/100
+                            for chan in channels:
+                                chan.filters["speed"].update(value)
+
                     if command == "STOP":
                         if wav is not None:
                             wav.close()
