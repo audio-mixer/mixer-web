@@ -2,7 +2,7 @@ const protocol = location.protocol == "http:" ? "ws" : "wss";
 const ws = new WebSocket(`${protocol}://${location.host}/stream`);
 ws.binaryType = "arraybuffer";
 
-const BUFFER_SIZE = 2;
+const BUFFER_SIZE = 3;
 
 let context;
 let source;
@@ -99,7 +99,7 @@ function stream(source = "example.wav") {
 
     stopbtn.classList.remove("gray");
     playbackToggle.classList.add("bi-pause-fill");
-    playbackToggle.classList.remove("gray", "bi-play-fill");
+    playbackToggle.classList.remove("bi-play-fill");
 }
 
 // begin playing audio from buffer
@@ -141,6 +141,7 @@ function stop() {
     progress.style.width = "0%"
     timer.innerText = `0:00 / 0:00`;
     stopbtn.classList.add("gray");
+    playbackToggle.classList.remove("gray");
     playbackToggle.classList.add("bi-play-fill");
     playbackToggle.classList.remove("bi-pause-fill");
 }
@@ -167,7 +168,7 @@ setInterval(() => {
 
     if (streaming) {
         if (active_buffer <= BUFFER_SIZE) {
-            
+
             active_buffer++;
             ws.send(JSON.stringify({
                 commands: ["NEXT"]

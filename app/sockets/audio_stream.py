@@ -15,8 +15,7 @@ from simple_websocket.ws \
 
 from urllib.error import HTTPError
 
-# BUFFER_SIZE = 2 ** 8
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 2048
 
 
 @socket.route("/stream")
@@ -60,8 +59,8 @@ def audio_stream(ws: Websocket):
                             if wav.tell() >= wav.getnframes():
                                 wav.close()
                                 wav = None
-                                should_continue = True
                                 print("finished transmitting chunks!")
+                                continue
 
                             sample_rate = wav.getframerate()
                             # call to the filter module here vvv
@@ -76,7 +75,6 @@ def audio_stream(ws: Websocket):
                             ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth())
 
                             ws.send(headers + processed_audio)
-                            # time.sleep(0.4 * filter.BUFFER_SIZE / sample_rate)
 
                     if command == "UPDATE_FILTER":
                         if channels is not None:
