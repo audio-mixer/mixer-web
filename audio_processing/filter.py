@@ -1,4 +1,6 @@
+
 import wave
+import numpy as np
 
 class Channel():
     def __init__(self):
@@ -40,7 +42,8 @@ class Convolution(Rollover):
 
     def execute(self, input):
         #call the convolve function (seperated from this method because it is useful elsewhere)
-        output = convolve(input.buffer, self.kernel)
+        output = np.convolve(input.buffer, self.kernel).tolist()
+        output = [int(sample) for sample in output]
         #call the rollover method to handle the rollover and return the correctly sized output buffer object.
         return self.handle_rollover(output, len(input.buffer))
 
@@ -118,11 +121,27 @@ def convolve(input, kernel):
 def moving_average_ir(strength):
     return [1/strength for i in range(strength)]
 
+def windowed_sinc_ir(cutoff, transition_band = 0.05):
+    """Returns a windowed-sinc filter kernel. I copied this code from the internet.
+    I don't know how it works. https://tomroelandts.com/articles/how-to-create-a-simple-low-pass-filter"""
+    N = int(np.ceil((4 / transition_band)))
+    if not N % 2: N += 1 #make sure that N is odd
+    n = np.arange(N)
+    #compute sinc filter
+    filter = np.sinc(2 * cutoff * (n - (N - 1) / 2))
+    #compute Blackman window
+    window = np.blackman(N)
+    #multiply filter by window
+    filter = filter * window
+    #normalize
+    filter = filter / np.sum(filter)
+    return filter
+
 def create_channels(wave):
     channels = []
     for i in range(wave.getnchannels()):
         channel = Channel()
-        channel.filters["lowpass"] = Convolution(moving_average_ir(1))
+        channel.filters["lowpass"] = Convolution(windowed_sinc_ir(.5))
         channel.filters["speed"] = PlaybackSpeed(1)
         channels.append(channel)
     return channels
@@ -159,7 +178,17 @@ def wav_to_num_samp(buffer, sample_width):
     return num_buffer
 
 def num_samp_to_wav(buffer, sample_width):
+    threshold = 2 ** ((sample_width * 8) - 1)
     output_buffer = bytes()
     for sample in buffer:
-        output_buffer += sample.to_bytes(sample_width,"little",signed = True)
+        if not -threshold < sample < threshold:
+            if sample > threshold:
+                sample = threshold -1
+            else:
+                sample = -threshold
+        try:
+            output_buffer += sample.to_bytes(sample_width,"little",signed = True)
+        except:
+            print("threshold: " + str(threshold))
+            print("sample: " + str(sample))
     return output_buffer
