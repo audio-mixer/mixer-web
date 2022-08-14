@@ -60,8 +60,8 @@ def audio_stream(ws: Websocket):
                             if wav.tell() >= wav.getnframes():
                                 wav.close()
                                 wav = None
-                                should_continue = True
                                 print("finished transmitting chunks!")
+                                continue
 
                             sample_rate = wav.getframerate()
                             # call to the filter module here vvv
