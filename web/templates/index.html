@@ -54,17 +54,20 @@
 </head>
 <body>
     <div class="controls">
-
-        <input class="slider" type="range" min="0" max="40" value="30" />        
+        <input class="slider" type="range" min="1" max="40" value="30" />
         {% include "partials/player.html" %}
     </div>
 
     <script>
         let slider = document.querySelector(".slider")
         slider.oninput = (e) => {
+            if (context == undefined || context.state == "closed") {
+                return;
+            }
+
             ws.send(JSON.stringify({
                 commands: ["UPDATE_FILTER"],
-                value: e.target.value
+                value: e.target.value,
             }))
         }
     </script>
