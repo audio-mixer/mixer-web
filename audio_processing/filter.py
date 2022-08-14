@@ -47,7 +47,7 @@ class Convolution(Rollover):
 class PlaybackSpeed():
     def __init__(self, speed):
         self.speed = speed
-        self.lowpass_filter = Convolution(moving_average_ir(10))
+        self.lowpass_filter = Convolution(moving_average_ir(1))
 
     def execute(self, input):
         step = 1 / self.speed #how many output samples per input sample (on average)
@@ -65,7 +65,6 @@ class PlaybackSpeed():
 
 def process(channels, raw_wav, sample_width):
     wav_channels = separate_wav_channels(raw_wav, len(channels), sample_width)
-    #wav_channels[0] is an empty bytes object for some reasaon..
     num_channels = [wav_to_num_samp(wav_channel, sample_width) for wav_channel in wav_channels]
 
     for channel, num_channel in zip(channels, num_channels):
@@ -123,8 +122,8 @@ def create_channels(wave):
     channels = []
     for i in range(wave.getnchannels()):
         channel = Channel()
-        channel.filters["lowpass"] = Convolution(moving_average_ir(15))
-        channel.filters["speed"] = PlaybackSpeed(1.2)
+        channel.filters["lowpass"] = Convolution(moving_average_ir(1))
+        channel.filters["speed"] = PlaybackSpeed(1)
         channels.append(channel)
     return channels
 
@@ -133,11 +132,15 @@ def get_buffer_from_file(file, sample_width):
 
 def separate_wav_channels(raw_wav, n_channels, sample_width):
     wav_channels = []
-    for i in range(n_channels):
+    #build a new channel for each channel
+    for channel_no in range(n_channels):
         wav_channels.append(bytes())
-        for j in range(len(raw_wav[::sample_width])):
-            wav_channels[i] += raw_wav[(i * sample_width) + (j * sample_width) :
-                                       (i * sample_width) + ((j + 1) * sample_width)]
+        #for each sample for this channel
+        for sample in range(int((len(raw_wav) / n_channels) / sample_width)):
+            #calculate the starting index of the sample
+            index = (sample * sample_width * n_channels) + (channel_no * sample_width)
+            #append to this channel the sample_width samples at this index
+            wav_channels[channel_no] += raw_wav[index:index + sample_width]
     return wav_channels
 
 def combine_wav_channels(channels, sample_width):

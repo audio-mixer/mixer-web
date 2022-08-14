@@ -2,7 +2,7 @@ const protocol = location.protocol == "http:" ? "ws" : "wss";
 const ws = new WebSocket(`${protocol}://${location.host}/stream`);
 ws.binaryType = "arraybuffer";
 
-const BUFFER_SIZE = 2;
+const BUFFER_SIZE = 3;
 
 let context;
 let source;
@@ -167,7 +167,7 @@ setInterval(() => {
 
     if (streaming) {
         if (active_buffer <= BUFFER_SIZE) {
-            
+
             active_buffer++;
             ws.send(JSON.stringify({
                 commands: ["NEXT"]
