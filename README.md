@@ -1,6 +1,6 @@
 # VAPORWAVE IT
 #### This is a showcase of audio possessing in python! created for a codejam hosted by <a href="https://www.youtube.com/c/PythonSimplified">Python Simplified</a>
-Allpy a lowpass filter or change the speed of audio playback, all of it is processed on the server with python and streamed to the clientside via websockets! enjoy!!! 💖
+Apply a lowpass filter or change the speed of audio playback, all of it is processed on the server with python and streamed to the clientside via websockets! enjoy!!! 💖
 
 # Installing
 ```commandline
