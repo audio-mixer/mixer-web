@@ -37,7 +37,9 @@
                 value: e.target.value,
             }))
         }
+
         playback_slider.oninput = (e) => {
+            
             if (context == undefined || context.state == "closed") {
                 return;
             }
@@ -46,6 +48,9 @@
                 commands: ["UPDATE_SPEED"],
                 value: e.target.value,
             }))
+
+            clearInterval(interval)
+            startInterval((1 + Math.abs(1 - (e.target.value / 100))) * 1000)
         }
     </script>
 </body>

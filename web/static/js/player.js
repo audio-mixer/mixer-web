@@ -6,11 +6,11 @@ const BUFFER_SIZE = 10;
 
 let context;
 let source;
+let interval;
 let time = 0;
 let init = 0;
 let nextTime = 0;
 let active_buffer = 0;
-let chunks_played = 0;
 let audioStack = [];
 let streaming = false;
 let duration = { hours: 0, minuets: 0, seconds: 0 };
@@ -116,7 +116,6 @@ function playBuffer() {
         source.start(nextTime);
         nextTime += source.buffer.duration;
         source.addEventListener("ended", () => {
-            chunks_played++;
             active_buffer--;
         });
     }
@@ -136,7 +135,6 @@ function stop() {
 
     time = 0;
     active_buffer = 0;
-    chunks_played = 0;
     streaming = false;
     progress.style.width = "0%"
     timer.innerText = `0:00 / 0:00`;
@@ -146,24 +144,7 @@ function stop() {
     playbackToggle.classList.remove("bi-pause-fill");
 }
 
-// custom listener
-setInterval(() => {
-    if (context == undefined) return;
-    if (context.state == "closed") return;
-    if (context.state == "suspended") return;
-    let totalDuration = (duration.minuets * 60) + duration.seconds;
-    if (totalDuration == 0) return;
-
-    time++;
-    if (time >= totalDuration) {
-        stop();
-    }
-
-    progress.style.width = `${(time / totalDuration) * 100}%`
-    let elapsed = new Date(time * 1000).toISOString().slice(14, 19);
-    timer.innerText = `${elapsed} / ${duration.minuets}:${duration.seconds}`;
-}, 1000);
-
+// custom listeners
 setInterval(() => {
 
     if (streaming) {
@@ -176,3 +157,29 @@ setInterval(() => {
         }
     }
 })
+
+function startInterval(ms) {
+    interval = setInterval(() => {
+
+        let playback_slider = document.querySelector(".playback_slider")
+        let totalDuration = (duration.minuets * 60) + duration.seconds;
+    
+        if (totalDuration == 0) return;
+        if (context == undefined) return;
+        if (context.state == "closed") return;
+        if (context.state == "suspended") return;
+    
+        time++;
+        if (time >= totalDuration) {
+            stop();
+        }
+    
+        let elapsed = new Date(time * 1000).toISOString().slice(14, 19);
+        timer.innerText = `${elapsed} / ${duration.minuets}:${duration.seconds}`;
+        if ((time / totalDuration) * 100 <= 100) {
+            progress.style.width = `${(time / totalDuration) * 100}%`
+        }        
+    }, ms);
+}
+
+startInterval(1000)
