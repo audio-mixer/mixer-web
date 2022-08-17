@@ -7,7 +7,7 @@ import urllib.parse
 import math
 
 import app
-from audio_processing import filter
+from app.processor import filter
 from app import socket
 from pytube import YouTube
 from pytube import request
@@ -136,7 +136,7 @@ def audio_stream(ws: Websocket):
                     if command == "UPDATE_FILTER":
                         if channels is not None:
                             value = int(data["value"])
-                            value = 0.5 - (math.log(value,10) / 4)
+                            value = 0.5 - (math.log(value, 10) / 4)
                             for chan in channels:
                                 chan.filters["lowpass"].kernel = filter.windowed_sinc_ir(value)
 
