@@ -83,7 +83,6 @@ def audio_stream(ws: Websocket):
 
         # don't block when timeout is set to 0
         message = ws.receive(timeout=0)
-        should_continue = False
         if message is not None:
 
             data = json.loads(message)
@@ -223,7 +222,3 @@ def audio_stream(ws: Websocket):
                             _audio = None
                             _buffer = []
                             print("stopped transmitting...")
-                        should_continue = True
-
-                if should_continue:
-                    continue
