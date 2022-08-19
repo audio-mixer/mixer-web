@@ -1,6 +1,7 @@
 import io
 import json
 import struct
+import time
 import wave
 import requests
 import urllib.parse
@@ -9,6 +10,7 @@ import math
 import app
 from app.processor import filter
 from app import socket
+from queue import Queue
 from pytube import YouTube
 from pydub import AudioSegment
 from pydub.utils import *
@@ -64,18 +66,19 @@ def audio_stream(ws: Websocket):
     wav = None
     channels = None
     _audio = None
-    _buffer = []
     _source = ""
     _duration = {}
 
+    _queue = Queue()
+
     # generator for YouTube streaming.
     def get_chunk():
-        try:
-            ch = _buffer[0]
-            _buffer.pop(0)
-
-            yield ch
-        except IndexError:
+        if _queue.not_empty:
+            chunk: AudioSegment = _queue.get()
+            buffer = io.BytesIO()
+            chunk.export(out_f=buffer, format="mp3")
+            yield buffer
+        else:
             raise StopIteration
 
     # keep connection open.
@@ -113,39 +116,41 @@ def audio_stream(ws: Websocket):
                 if _source == "youtube":
                     _query = data["q"]
 
-                    # initially search YouTube
-                    res = requests.get(f"{app.URL}/search?" + urllib.parse.urlencode({
-                        "key": app.KEY,
-                        "part": "id",
-                        "maxResults": "1",
-                        "type": "video",
-                        "q": _query
-                    }), headers={"Accept": "application/json"})
-                    videoid = res.json()["items"][0]["id"]["videoId"]
+                    def process_stream():
+                        # initially search YouTube
+                        res = requests.get(f"{app.URL}/search?" + urllib.parse.urlencode({
+                            "key": app.KEY,
+                            "part": "id",
+                            "maxResults": "1",
+                            "type": "video",
+                            "q": _query
+                        }), headers={"Accept": "application/json"})
+                        videoid = res.json()["items"][0]["id"]["videoId"]
 
-                    # get audio data from search result
-                    file = io.BytesIO()
-                    video = YouTube(f"https://www.youtube.com/watch?v={videoid}")
-                    stream = video.streams.filter(only_audio=True, file_extension="mp4").first()
-                    stream.stream_to_buffer(file)
-                    file.seek(0)
+                        # get audio data from search result
+                        file = io.BytesIO()
+                        video = YouTube(f"https://www.youtube.com/watch?v={videoid}")
+                        stream = video.streams.filter(only_audio=True, file_extension="mp4").first()
+                        stream.stream_to_buffer(file)
+                        file.seek(0)
 
-                    # break data into a list of io.BytesIO objects
-                    _audio = AudioSegment.from_file(file)
-                    chunks = make_chunks(_audio, chunk_length=1000)  # 1000ms
-                    for i in range(len(chunks)):
-                        buffer = io.BytesIO()
-                        chunk: AudioSegment = chunks[i]
-                        chunk.export(out_f=buffer, format="mp3")
+                        # break data into a list of io.BytesIO objects
+                        audio = AudioSegment.from_file(file)
+                        [_queue.put(chunk) for chunk in make_chunks(audio, chunk_length=1000)]
 
-                        _buffer.append(buffer)
+                        # calculate audio duration
+                        duration = {
+                            "hours": audio.duration_seconds // 3600,
+                            "minuets": audio.duration_seconds // 60,
+                            "seconds": math.floor(audio.duration_seconds % 60)
+                        }
 
-                    # calculate audio duration
-                    _duration = {
-                        "hours": _audio.duration_seconds // 3600,
-                        "minuets": _audio.duration_seconds // 60,
-                        "seconds": math.floor(_audio.duration_seconds % 60)
-                    }
+                        return audio, duration
+
+                    start = time.perf_counter()
+                    _audio, _duration = process_stream()
+                    end = time.perf_counter()
+                    print(f"Finished processing data in {round(end - start, 2)}")
             else:
                 pass
 
@@ -193,7 +198,6 @@ def audio_stream(ws: Websocket):
                                     ws.send(next(get_chunk()).read())
                                 except StopIteration:
                                     _audio = None
-                                    _buffer = []
                                     print("finished transmitting chunks!")
                                     continue
 
@@ -221,7 +225,6 @@ def audio_stream(ws: Websocket):
                             channels = None
                         if _audio is not None:
                             _audio = None
-                            _buffer = []
 
                         print("stopped transmitting...")
 
