@@ -219,6 +219,9 @@ def audio_stream(ws: Websocket):
                             wav.close()
                             wav = None
                             channels = None
+                        if _audio is not None:
                             _audio = None
                             _buffer = []
-                            print("stopped transmitting...")
+
+                        print("stopped transmitting...")
+

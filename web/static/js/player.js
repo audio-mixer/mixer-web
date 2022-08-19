@@ -143,6 +143,7 @@ function stop() {
     playbackToggle.classList.remove("gray");
     playbackToggle.classList.add("bi-play-fill");
     playbackToggle.classList.remove("bi-pause-fill");
+    duration = { hours: 0, minuets: 0, seconds: 0 };
 }
 
 // custom listeners
