@@ -10,11 +10,11 @@ import app
 from app.processor import filter
 from app import socket
 from pytube import YouTube
-from pytube import request
+from pydub import AudioSegment
+from pydub.utils import *
 from simple_websocket.ws \
     import Base as Websocket
 
-from urllib.error import HTTPError
 
 BUFFER_SIZE = 2048
 
@@ -63,7 +63,20 @@ def audio_stream(ws: Websocket):
 
     wav = None
     channels = None
+    _audio = None
+    _buffer = []
+    _source = ""
     _duration = {}
+
+    # generator for YouTube streaming.
+    def get_chunk():
+        try:
+            ch = _buffer[0]
+            _buffer.pop(0)
+
+            yield ch
+        except IndexError:
+            raise StopIteration
 
     # keep connection open.
     while ws.connected:
@@ -78,23 +91,64 @@ def audio_stream(ws: Websocket):
             # read the `source` property sent from the client
             # and open `wave` object for reading.
             if "source" in data:
-                wav = wave.open(data["source"])
+                _source = data["source"]
+                if _source == "file":
+                    wav = wave.open(data["q"])
 
-                # calculate the duration of the track, so it can be retrieved with the `GET` command.
-                length = int(wav.getnframes() / wav.getframerate())
-                hours = length // 3600
-                length %= 3600
-                minutes = length // 60
-                length %= 60
-                seconds = length
-                _duration = {
-                    "hours": hours,
-                    "minuets": minutes,
-                    "seconds": seconds
-                }
+                    # calculate the duration of the track, so it can be retrieved with the `GET` command.
+                    length = int(wav.getnframes() / wav.getframerate())
+                    hours = length // 3600
+                    length %= 3600
+                    minutes = length // 60
+                    length %= 60
+                    seconds = length
+                    _duration = {
+                        "hours": hours,
+                        "minuets": minutes,
+                        "seconds": seconds
+                    }
 
-                # create `filter.Channel()'s` object for possessing filters.
-                channels = filter.create_channels(wav)
+                    # create `filter.Channel()'s` object for possessing filters.
+                    channels = filter.create_channels(wav)
+
+                if _source == "youtube":
+                    _query = data["q"]
+
+                    # initially search YouTube
+                    res = requests.get(f"{app.URL}/search?" + urllib.parse.urlencode({
+                        "key": app.KEY,
+                        "part": "id",
+                        "maxResults": "1",
+                        "type": "video",
+                        "q": _query
+                    }), headers={"Accept": "application/json"})
+                    videoid = res.json()["items"][0]["id"]["videoId"]
+
+                    # get audio data from search result
+                    file = io.BytesIO()
+                    video = YouTube(f"https://www.youtube.com/watch?v={videoid}")
+                    stream = video.streams.filter(only_audio=True, file_extension="mp4").first()
+                    stream.stream_to_buffer(file)
+                    file.seek(0)
+
+                    # break data into a list of io.BytesIO objects
+                    _audio = AudioSegment.from_file(file)
+                    chunks = make_chunks(_audio, chunk_length=1000)  # 200ms
+                    for i in range(len(chunks)):
+                        buffer = io.BytesIO()
+                        chunk: AudioSegment = chunks[i]
+                        chunk.export(out_f=buffer, format="mp3")
+
+                        _buffer.append(buffer)
+
+                    # calculate audio duration
+                    _duration = {
+                        "hours": _audio.duration_seconds // 3600,
+                        "minuets": _audio.duration_seconds // 60,
+                        "seconds": math.floor(_audio.duration_seconds % 60)
+                    }
+            else:
+                pass
 
             # read the `commands` property sent from the client
             if "commands" in data:
@@ -109,28 +163,40 @@ def audio_stream(ws: Websocket):
 
                     # handles the `NEXT` command
                     if command == "NEXT":
-                        if wav is not None:
-                            if wav.tell() >= wav.getnframes():
-                                wav.close()
-                                wav = None
-                                print("finished transmitting chunks!")
-                                continue
+                        if _source == "file":
+                            if wav is not None:
+                                if wav.tell() >= wav.getnframes():
+                                    wav.close()
+                                    wav = None
+                                    channels = None
+                                    print("finished transmitting chunks!")
+                                    continue
 
-                            # read the next chunk and possess the channels
-                            raw_wav = wav.readframes(BUFFER_SIZE)
-                            channels = filter.process(channels, raw_wav, wav.getsampwidth())
-                            processed_audio = filter.combine_wav_channels(channels, wav.getsampwidth())
+                                # read the next chunk and possess the channels
+                                raw_wav = wav.readframes(BUFFER_SIZE)
+                                channels = filter.process(channels, raw_wav, wav.getsampwidth())
+                                processed_audio = filter.combine_wav_channels(channels, wav.getsampwidth())
 
-                            # recreate the wav headers as the `wave` module strips them off :(
-                            headers = b'RIFF' + struct.pack(
-                                '<L4s4sLHHLLHH4s', 36 + wav.getnframes() * wav.getnchannels() * wav.getsampwidth(),
-                                b'WAVE', b'fmt ', 16, 0x0001, wav.getnchannels(), wav.getframerate(),
-                                wav.getnchannels() * wav.getframerate() * wav.getsampwidth(),
-                                wav.getnchannels() * wav.getsampwidth(), wav.getsampwidth() * 8, b'data'
-                            ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth())
+                                # recreate the wav headers as the `wave` module strips them off :(
+                                headers = b'RIFF' + struct.pack(
+                                    '<L4s4sLHHLLHH4s', 36 + wav.getnframes() * wav.getnchannels() * wav.getsampwidth(),
+                                    b'WAVE', b'fmt ', 16, 0x0001, wav.getnchannels(), wav.getframerate(),
+                                    wav.getnchannels() * wav.getframerate() * wav.getsampwidth(),
+                                    wav.getnchannels() * wav.getsampwidth(), wav.getsampwidth() * 8, b'data'
+                                ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth())
 
-                            # finally, send the processed chunk to the client
-                            ws.send(headers + processed_audio)
+                                # finally, send the processed chunk to the client
+                                ws.send(headers + processed_audio)
+
+                        if _source == "youtube":
+                            if _audio is not None:
+                                try:
+                                    ws.send(next(get_chunk()).read())
+                                except StopIteration:
+                                    _audio = None
+                                    _buffer = []
+                                    print("finished transmitting chunks!")
+                                    continue
 
                     # handles the `UPDATE_FILTER` command
                     if command == "UPDATE_FILTER":
@@ -153,6 +219,9 @@ def audio_stream(ws: Websocket):
                         if wav is not None:
                             wav.close()
                             wav = None
+                            channels = None
+                            _audio = None
+                            _buffer = []
                             print("stopped transmitting...")
                         should_continue = True
 
@@ -172,16 +241,22 @@ def youtube_stream(ws: Websocket):
     This function was left in so that we could
     return to this problem.
     """
+    def get_chunk():
+        try:
+            ch = _buffer[0]
+            _buffer.pop(0)
 
-    _buffer = io.BytesIO()
+            yield ch
+        except IndexError:
+            raise StopIteration
+
+    _buffer = []
     _stream = None
     _audio = None
-    _bytes_read = 0
     _duration = {}
 
     while ws.connected:
         message = ws.receive(timeout=0)
-        should_continue = False
         if message is not None:
             data = json.loads(message)
             if "q" in data:
@@ -197,23 +272,29 @@ def youtube_stream(ws: Websocket):
                 }), headers={"Accept": "application/json"})
                 videoid = res.json()["items"][0]["id"]["videoId"]
 
-                # get metadata about the video
-                res = requests.get(f"{app.URL}/videos?" + urllib.parse.urlencode({
-                    "id": videoid,
-                    "key": app.KEY,
-                    "part": "contentDetails",
-                }), headers={"Accept": "application/json"})
-                iso8601 = res.json()["items"][0]["contentDetails"]["duration"]
-                _duration = _parse_iso_datetime(iso8601)
-
                 # get audio data from search result
+                file = io.BytesIO()
                 video = YouTube(f"https://www.youtube.com/watch?v={videoid}")
-                _audio = video.streams.filter(only_audio=True, file_extension="mp4").first()
+                _stream = video.streams.filter(only_audio=True, file_extension="mp4").first()
+                _stream.stream_to_buffer(file)
+                file.seek(0)
 
-                try:
-                    _stream = request.stream(url=_audio.url)
-                except HTTPError:
-                    _stream = request.seq_stream(url=_audio.url)
+                # break data into a list of io.BytesIO objects
+                _audio = AudioSegment.from_file(file)
+                chunks = make_chunks(_audio, chunk_length=1000)  # 200ms
+                for i in range(len(chunks)):
+                    buffer = io.BytesIO()
+                    chunk: AudioSegment = chunks[i]
+                    chunk.export(out_f=buffer, format="mp3")
+
+                    _buffer.append(buffer)
+
+                # calculate audio duration
+                _duration = {
+                    "hours": _audio.duration_seconds // 3600,
+                    "minuets": _audio.duration_seconds // 60,
+                    "seconds": math.floor(_audio.duration_seconds % 60)
+                }
 
             if "commands" in data:
                 for command in data["commands"]:
@@ -222,55 +303,20 @@ def youtube_stream(ws: Websocket):
                             "command": "GET",
                             "duration": _duration
                         }))
+
+                    if command == "NEXT":
+                        if _audio is not None:
+                            try:
+                                ws.send(next(get_chunk()).read())
+                            except StopIteration:
+                                _audio = None
+                                _stream = None
+                                _buffer = []
+                                print("finished transmitting chunks!")
+                                continue
+
                     if command == "STOP":
                         _audio = None
                         _stream = None
-                        _buffer = io.BytesIO()
-                        _buffer2 = io.BytesIO()
-                        should_continue = True
+                        _buffer = []
                         print("stopped transmitting...")
-
-                if should_continue:
-                    continue
-
-        if _audio is not None:
-            if _bytes_read >= _audio.filesize:
-                _audio = None
-                _stream = None
-                _bytes_read = 0
-                _buffer = io.BytesIO()
-                print("finished transmitting chunks!")
-                continue
-
-            for chunk in _stream:
-                _bytes_read += len(chunk)
-                _buffer.write(chunk)
-
-            _buffer.seek(0)
-            ws.send(_buffer.read())
-
-
-def _parse_iso_datetime(isostring: str) -> dict:
-    """
-    this was used in the `youtube_stream` function...
-    """
-    (v, h, m, s) = ("", 0, 0, 0)
-    for char in isostring:
-        try:
-            v += v.join(f"{str(int(char))}")
-        except ValueError:
-            if char == "H":
-                h = int(v)
-                v = ""
-            if char == "M":
-                m = int(v)
-                v = ""
-            if char == "S":
-                s = int(v)
-                v = ""
-
-    return {
-        "hours": h,
-        "minuets": m,
-        "seconds": s
-    }
