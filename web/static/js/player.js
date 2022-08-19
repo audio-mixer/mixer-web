@@ -36,7 +36,7 @@ playbackToggle.addEventListener("click", (e) => {
 
     // start playback
     if (context == undefined || context.state == "closed") {
-        stream("example.wav");
+        stream("file", "example.wav");
         return;
     }
 
@@ -83,7 +83,7 @@ ws.onmessage = (message) => {
 };
 
 // begin recieving audio chunks over websockets
-function stream(source = "example.wav") {
+function stream(source = "file", q = "example.wav") {
     // reset varuables
     [init, nextTime] = [0, 0];
 
@@ -93,6 +93,7 @@ function stream(source = "example.wav") {
     // initially send information to the server to fetch the audio stream
     streaming = true;
     ws.send(JSON.stringify({
+        q: q,
         source: source,
         commands: ["STREAM", "GET"],
     }));
