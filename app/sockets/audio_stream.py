@@ -132,7 +132,7 @@ def audio_stream(ws: Websocket):
 
                     # break data into a list of io.BytesIO objects
                     _audio = AudioSegment.from_file(file)
-                    chunks = make_chunks(_audio, chunk_length=1000)  # 200ms
+                    chunks = make_chunks(_audio, chunk_length=1000)  # 1000ms
                     for i in range(len(chunks)):
                         buffer = io.BytesIO()
                         chunk: AudioSegment = chunks[i]
