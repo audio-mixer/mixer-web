@@ -15,6 +15,7 @@ from simple_websocket.ws \
     import Base as Websocket
 
 from urllib.error import HTTPError
+import ffmpeg
 
 BUFFER_SIZE = 2048
 
@@ -64,6 +65,7 @@ def audio_stream(ws: Websocket):
     wav = None
     channels = None
     _duration = {}
+    file_pos = 0
 
     # keep connection open.
     while ws.connected:
@@ -78,7 +80,7 @@ def audio_stream(ws: Websocket):
             # read the `source` property sent from the client
             # and open `wave` object for reading.
             if "source" in data:
-                wav = wave.open(data["source"])
+                wav = wave.open("sample_audio\example.wav")
 
                 # calculate the duration of the track, so it can be retrieved with the `GET` command.
                 length = int(wav.getnframes() / wav.getframerate())
@@ -117,20 +119,34 @@ def audio_stream(ws: Websocket):
                                 continue
 
                             # read the next chunk and possess the channels
-                            raw_wav = wav.readframes(BUFFER_SIZE)
-                            channels = filter.process(channels, raw_wav, wav.getsampwidth())
-                            processed_audio = filter.combine_wav_channels(channels, wav.getsampwidth())
+                            my_ss = '00:{:0>2}'.format(file_pos)
+                            raw_wav, _ = (ffmpeg
+                                    .input("sample_audio\Somewhere Between Grey and Gold.mp3", ss=my_ss, t='00:01')
+                                    .output('pipe:', format='s16le', acodec='pcm_s16le', ac=2, ar='16k')
+                                    .run(quiet=True)
+                                    )
+                            # print(raw_wav)
+                            file_pos += 1
+                            # raw_wav = wav.readframes(BUFFER_SIZE)
+                            # channels = filter.process(channels, raw_wav, wav.getsampwidth())
+                            # processed_audio = filter.combine_wav_channels(channels, wav.getsampwidth())
 
                             # recreate the wav headers as the `wave` module strips them off :(
-                            headers = b'RIFF' + struct.pack(
-                                '<L4s4sLHHLLHH4s', 36 + wav.getnframes() * wav.getnchannels() * wav.getsampwidth(),
-                                b'WAVE', b'fmt ', 16, 0x0001, wav.getnchannels(), wav.getframerate(),
-                                wav.getnchannels() * wav.getframerate() * wav.getsampwidth(),
-                                wav.getnchannels() * wav.getsampwidth(), wav.getsampwidth() * 8, b'data'
-                            ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth())
+                            # headers = b'RIFF' + struct.pack(
+                                # '<L4s4sLHHLLHH4s', 36 + wav.getnframes() * wav.getnchannels() * wav.getsampwidth(),
+                                # b'WAVE', b'fmt ', 16, 0x0001, wav.getnchannels(), wav.getframerate(),
+                                # wav.getnchannels() * wav.getframerate() * wav.getsampwidth(),
+                                # wav.getnchannels() * wav.getsampwidth(), wav.getsampwidth() * 8, b'data'
+                            # ) + struct.pack('<L', wav.getnframes() * wav.getnchannels() * wav.getsampwidth())
+
+                            processed_audio, _ = (ffmpeg
+                                    .input('pipe:', format='s16le', acodec='pcm_s16le', ac=2, ar='16k')
+                                    .output('pipe:', format='mp3', acodec='mp3', ac=2, ar='16k')
+                                    .run(quiet=True, input=raw_wav)
+                                    )
 
                             # finally, send the processed chunk to the client
-                            ws.send(headers + processed_audio)
+                            ws.send(processed_audio)
 
                     # handles the `UPDATE_FILTER` command
                     if command == "UPDATE_FILTER":

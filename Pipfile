@@ -43,6 +43,8 @@ wsproto = "==1.1.0"
 "zope.event" = "==4.5.0"
 "zope.interface" = "==5.4.0"
 numpy = "==1.23.1"
+pydub = "*"
+ffmpeg-python = "*"
 
 [dev-packages]
 
