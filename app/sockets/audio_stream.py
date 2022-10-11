@@ -121,12 +121,12 @@ def audio_stream(ws: Websocket):
                             # read the next chunk and possess the channels
                             my_ss = '00:{:0>2}'.format(file_pos)
                             raw_wav, _ = (ffmpeg
-                                    .input("sample_audio\Somewhere Between Grey and Gold.mp3", ss=my_ss, t='00:01')
+                                    .input("sample_audio\Somewhere Between Grey and Gold.mp3", ss=my_ss, t='00:02')
                                     .output('pipe:', format='s16le', acodec='pcm_s16le', ac=2, ar='16k')
                                     .run(quiet=True)
                                     )
                             # print(raw_wav)
-                            file_pos += 1
+                            file_pos += 2
                             # raw_wav = wav.readframes(BUFFER_SIZE)
                             # channels = filter.process(channels, raw_wav, wav.getsampwidth())
                             # processed_audio = filter.combine_wav_channels(channels, wav.getsampwidth())
